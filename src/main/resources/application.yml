@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: stripe-gateway
+
+server:
+  port: ${SERVER_PORT:8100}
+
+external-provider:
+  mode: ${EXTERNAL_PROVIDER_MODE:LIVE}
+
+fixture:
+  system-data-service-url: ${SYSTEM_DATA_SERVICE_URL:http://localhost:8103}
+  dataset-id: ${FIXTURE_DATASET_ID:uk-software-developer-demo}
+  dataset-version: ${FIXTURE_DATASET_VERSION:1.0.0}
+  scenario: ${FIXTURE_SCENARIO:happy-path}
+
+stripe:
+  api-base-url: ${STRIPE_API_BASE_URL:https://api.stripe.com}
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/payment/success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/payment/cancel}
+
+services:
+  payment-service:
+    base-url: ${PAYMENT_SERVICE_URL:http://localhost:8099}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId}] [%X{serviceName}] [%thread] %logger{36} - %msg%n"
+  level:
+    com.jobseekercopilot: ${APP_LOG_LEVEL:INFO}

@@ -1,0 +1,124 @@
+package com.jobseekercopilot.stripegateway.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobseekercopilot.stripegateway.config.ExternalProviderMode;
+import com.jobseekercopilot.stripegateway.config.ExternalProviderProperties;
+import com.jobseekercopilot.stripegateway.config.StripeProperties;
+import com.jobseekercopilot.stripegateway.exception.BadRequestException;
+import com.jobseekercopilot.stripegateway.exception.StripeConfigurationException;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+@Slf4j
+public class StripeWebhookVerifier {
+    private static final long DEFAULT_TOLERANCE_SECONDS = 300;
+    private final StripeProperties stripeProperties;
+    private final ExternalProviderProperties providerProperties;
+    private final ObjectMapper objectMapper;
+    private Clock clock = Clock.systemUTC();
+
+    @Autowired
+    public StripeWebhookVerifier(StripeProperties stripeProperties, ExternalProviderProperties providerProperties, ObjectMapper objectMapper) {
+        this.stripeProperties = stripeProperties;
+        this.providerProperties = providerProperties;
+        this.objectMapper = objectMapper;
+    }
+
+    StripeWebhookVerifier(StripeProperties stripeProperties, ObjectMapper objectMapper) {
+        this(stripeProperties, new ExternalProviderProperties(), objectMapper);
+    }
+
+    public JsonNode verifyAndParse(String payload, String signatureHeader) {
+        if (providerProperties.getMode() == ExternalProviderMode.FIXTURE) {
+            try {
+                return objectMapper.readTree(payload);
+            } catch (Exception exception) {
+                throw new BadRequestException("Invalid fixture Stripe webhook payload");
+            }
+        }
+        requireWebhookSecret();
+        String timestamp = headerValue(signatureHeader, "t");
+        String expectedSignature = hmacSha256(timestamp + "." + payload, stripeProperties.getWebhookSecret());
+        String actualSignature = headerValue(signatureHeader, "v1");
+        if (!constantTimeEquals(expectedSignature, actualSignature)) {
+            log.warn("Stripe webhook verification failed reason=InvalidSignature");
+            throw new BadRequestException("Invalid Stripe webhook signature");
+        }
+        verifyTimestamp(timestamp);
+        try {
+            return objectMapper.readTree(payload);
+        } catch (Exception exception) {
+            throw new BadRequestException("Invalid Stripe webhook payload");
+        }
+    }
+
+    void setClock(Clock clock) {
+        this.clock = clock;
+    }
+
+    private void requireWebhookSecret() {
+        if (stripeProperties.getWebhookSecret() == null || stripeProperties.getWebhookSecret().isBlank()) {
+            throw new StripeConfigurationException("STRIPE_WEBHOOK_SECRET is required");
+        }
+    }
+
+    private String headerValue(String header, String key) {
+        if (header == null || header.isBlank()) {
+            throw new BadRequestException("Missing Stripe signature header");
+        }
+        for (String part : header.split(",")) {
+            String[] pieces = part.split("=", 2);
+            if (pieces.length == 2 && pieces[0].trim().equals(key)) {
+                return pieces[1].trim();
+            }
+        }
+        throw new BadRequestException("Missing Stripe signature " + key + " value");
+    }
+
+    private void verifyTimestamp(String timestamp) {
+        long signedAt;
+        try {
+            signedAt = Long.parseLong(timestamp);
+        } catch (NumberFormatException exception) {
+            log.warn("Stripe webhook verification failed reason=InvalidTimestamp");
+            throw new BadRequestException("Invalid Stripe signature timestamp");
+        }
+        long now = Instant.now(clock).getEpochSecond();
+        if (Math.abs(now - signedAt) > DEFAULT_TOLERANCE_SECONDS) {
+            log.warn("Stripe webhook verification failed reason=TimestampOutsideTolerance");
+            throw new BadRequestException("Stripe webhook signature timestamp is outside tolerance");
+        }
+    }
+
+    private String hmacSha256(String value, String secret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException | InvalidKeyException exception) {
+            throw new BadRequestException("Unable to verify Stripe webhook signature");
+        }
+    }
+
+    private boolean constantTimeEquals(String expected, String actual) {
+        if (expected == null || actual == null || expected.length() != actual.length()) {
+            return false;
+        }
+        int result = 0;
+        for (int i = 0; i < expected.length(); i++) {
+            result |= expected.charAt(i) ^ actual.charAt(i);
+        }
+        return result == 0;
+    }
+}
