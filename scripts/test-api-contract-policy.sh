@@ -43,4 +43,25 @@ if "$repository_root/scripts/verify-api-contract.sh" "$temporary_dir/price-bound
     exit 1
 fi
 
+copy_contract "$temporary_dir/service-identity"
+jq 'del(.paths["/api/v1/stripe/checkout-sessions"].post.security)' \
+    "$temporary_dir/service-identity/openapi.json" > "$temporary_dir/service-identity/changed.json"
+mv "$temporary_dir/service-identity/changed.json" "$temporary_dir/service-identity/openapi.json"
+(cd "$temporary_dir/service-identity" && sha256sum openapi.json > SHA256SUMS)
+if "$repository_root/scripts/verify-api-contract.sh" "$temporary_dir/service-identity/openapi.json" >/dev/null 2>&1; then
+    echo "API contract negative test accepted removal of checkout service authentication" >&2
+    exit 1
+fi
+
+copy_contract "$temporary_dir/payment-owner"
+jq '.paths["/api/v1/stripe/checkout-sessions"].post.parameters
+        |= map(select(.name != "X-Payment-Owner"))' \
+    "$temporary_dir/payment-owner/openapi.json" > "$temporary_dir/payment-owner/changed.json"
+mv "$temporary_dir/payment-owner/changed.json" "$temporary_dir/payment-owner/openapi.json"
+(cd "$temporary_dir/payment-owner" && sha256sum openapi.json > SHA256SUMS)
+if "$repository_root/scripts/verify-api-contract.sh" "$temporary_dir/payment-owner/openapi.json" >/dev/null 2>&1; then
+    echo "API contract negative test accepted removal of the trusted payment owner" >&2
+    exit 1
+fi
+
 echo "API contract policy negative tests passed"

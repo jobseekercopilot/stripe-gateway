@@ -15,6 +15,9 @@ fixture:
   scenario: ${FIXTURE_SCENARIO:happy-path}
 
 stripe:
+  security:
+    payment-gateway-token: ${PAYMENT_GATEWAY_TO_STRIPE_GATEWAY_TOKEN:}
+    payment-service-token: ${STRIPE_GATEWAY_TO_PAYMENT_SERVICE_TOKEN:}
   api-base-url: ${STRIPE_API_BASE_URL:https://api.stripe.com}
   secret-key: ${STRIPE_SECRET_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}

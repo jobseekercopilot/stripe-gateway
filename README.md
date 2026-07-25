@@ -9,6 +9,8 @@ adapter is checked against its own pinned producer contract. No copied JAR is a
 build input.
 
 See [`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
+See [`docs/PAYMENT_IDENTITY_BOUNDARY.md`](docs/PAYMENT_IDENTITY_BOUNDARY.md)
+for the service-token and owner trust boundary.
 
 ## Build
 
@@ -22,6 +24,12 @@ The command needs no sibling checkout or `libs` directory. Do not commit
 generated sources, JARs or real Stripe credentials.
 
 The captured OpenAPI contract is in `contracts/openapi.json`.
+
+Checkout creation requires `PAYMENT_GATEWAY_TO_STRIPE_GATEWAY_TOKEN`; webhook
+fulfilment authenticates to Payment Service with
+`STRIPE_GATEWAY_TO_PAYMENT_SERVICE_TOKEN`. Both secrets must contain at least
+32 bytes and must be distinct. Stripe webhook calls remain authenticated by
+`Stripe-Signature` and `STRIPE_WEBHOOK_SECRET`.
 
 Run the source and compatibility gates with:
 

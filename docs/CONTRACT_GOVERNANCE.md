@@ -12,7 +12,9 @@ without retaining an unused generated-client JAR.
 
 Stripe Gateway owns `contracts/openapi.json` for its checkout/webhook provider
 boundary. `contracts/SHA256SUMS`, the API policy and generated-contract equality
-gate keep that producer source authoritative.
+gate keep that producer source authoritative. The policy also requires service
+authentication and a trusted payment owner on checkout creation; removing
+either control is contract drift.
 
 ## Updating a dependency
 

@@ -20,8 +20,16 @@ done
 
 jq -e '
     (.openapi | type == "string" and startswith("3.")) and
-    (.info.version == "1.0.0") and
+    (.info.version == "2.0.0") and
+    (.components.securitySchemes.serviceToken
+        | .type == "apiKey" and .in == "header" and .name == "X-Service-Token") and
     (.paths["/api/v1/stripe/checkout-sessions"].post.operationId == "createCheckoutSession") and
+    (.paths["/api/v1/stripe/checkout-sessions"].post.security
+        == [{"serviceToken": []}]) and
+    (.paths["/api/v1/stripe/checkout-sessions"].post.parameters
+        | any(.name == "X-Payment-Owner" and .in == "header" and .required == true)) and
+    (.paths["/api/v1/stripe/checkout-sessions"].post.parameters
+        | all(.name != "X-User-Id")) and
     (.paths["/api/v1/stripe/webhook"].post.operationId == "webhook") and
     (.paths["/api/v1/stripe/webhook"].post.parameters[0].name == "Stripe-Signature") and
     (.components.schemas.CreateCheckoutSessionRequest.required

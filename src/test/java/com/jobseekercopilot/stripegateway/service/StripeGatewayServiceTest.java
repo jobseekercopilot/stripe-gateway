@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -42,10 +43,23 @@ class StripeGatewayServiceTest {
         when(stripeApiClient.createCheckoutSession(eq(request), eq("Job Seeker Copilot AI Tokens - Starter")))
                 .thenReturn(session);
 
-        CreateCheckoutSessionResponse response = service.createCheckoutSession(request);
+        CreateCheckoutSessionResponse response = service.createCheckoutSession("user-123", request);
 
         assertThat(response.getSessionId()).isEqualTo("cs_test_123");
         assertThat(response.getCheckoutUrl()).isEqualTo("https://checkout.stripe.com/c/pay/cs_test_123");
+    }
+
+    @Test
+    void checkoutRejectsConflictingCallerSelectedOwner() {
+        StripeApiClient stripeApiClient = mock(StripeApiClient.class);
+        StripeGatewayService service = new StripeGatewayService(
+                stripeApiClient,
+                verifier(),
+                mock(PaymentServiceClient.class));
+
+        assertThatThrownBy(() -> service.createCheckoutSession("authenticated-owner", checkoutRequest()))
+                .isInstanceOf(com.jobseekercopilot.stripegateway.exception.BadRequestException.class)
+                .hasMessage("Payment owner does not match authenticated context");
     }
 
     @Test
