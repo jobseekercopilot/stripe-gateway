@@ -3,8 +3,10 @@
 Spring Boot boundary for the inherited Stripe Checkout and webhook integration.
 
 This repository is a sanitised audit baseline, not an approved live-provider
-release. The current source requires locally supplied generated Payment Service and
-System Data client JARs. Those binaries are intentionally not committed.
+release. It builds its System Data fixture client deterministically from a
+reviewed, checksum-protected producer contract. The handwritten Payment Service
+adapter is checked against its own pinned producer contract. No copied JAR is a
+build input.
 
 See [`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
 
@@ -16,10 +18,23 @@ Java 17 and Maven are required.
 mvn -B clean verify
 ```
 
-The command fails in a clean clone until generated clients are reproducible. Do
-not commit JARs or real Stripe credentials.
+The command needs no sibling checkout or `libs` directory. Do not commit
+generated sources, JARs or real Stripe credentials.
 
 The captured OpenAPI contract is in `contracts/openapi.json`.
+
+Run the source and compatibility gates with:
+
+```bash
+./scripts/test-contract-policy.sh
+./scripts/verify-contracts.sh
+./scripts/test-api-contract-policy.sh
+./scripts/verify-api-contract.sh
+./scripts/test-client-generation.sh
+```
+
+See [`docs/CONTRACT_GOVERNANCE.md`](docs/CONTRACT_GOVERNANCE.md) for ownership,
+revision/checksum pins, generation and rollback.
 
 ## Licence
 

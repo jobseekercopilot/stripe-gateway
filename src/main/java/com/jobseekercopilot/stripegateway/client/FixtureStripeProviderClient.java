@@ -6,6 +6,7 @@ import com.jobseekercopilot.stripegateway.dto.StripeCheckoutSession;
 import com.jobseekercopilot.generated.systemdataservice.api.FixtureControllerApi;
 import com.jobseekercopilot.generated.systemdataservice.model.FixtureStripeRequest;
 import com.jobseekercopilot.generated.systemdataservice.model.FixtureStripeResponse;
+import java.net.URI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,7 +38,9 @@ public class FixtureStripeProviderClient implements StripeProviderClient {
         FixtureStripeResponse body = fixtureControllerApi.stripe(payload);
         StripeCheckoutSession session = new StripeCheckoutSession();
         session.setId(text(body == null ? null : body.getSessionId(), "cs_test_demo_fixture"));
-        session.setUrl(text(body == null ? null : body.getCheckoutUrl(), "https://fixtures.jobseekercopilot.local/stripe/checkout"));
+        session.setUrl(uriText(
+                body == null ? null : body.getCheckoutUrl(),
+                "https://fixtures.jobseekercopilot.local/stripe/checkout"));
         session.setPaymentIntent(text(body == null ? null : body.getPaymentIntentId(), "pi_demo_fixture"));
         log.info("Stripe fixture checkout session created sessionId={} datasetId={} scenario={}",
                 session.getId(), fixtureProperties.getDatasetId(), fixtureProperties.getScenario());
@@ -46,5 +49,9 @@ public class FixtureStripeProviderClient implements StripeProviderClient {
 
     private String text(String value, String fallback) {
         return value == null ? fallback : value;
+    }
+
+    private String uriText(URI value, String fallback) {
+        return value == null ? fallback : value.toString();
     }
 }
