@@ -20,8 +20,13 @@ public class StripeGatewayService {
     private final StripeWebhookVerifier webhookVerifier;
     private final PaymentServiceClient paymentServiceClient;
 
-    public CreateCheckoutSessionResponse createCheckoutSession(CreateCheckoutSessionRequest request) {
+    public CreateCheckoutSessionResponse createCheckoutSession(
+            String authenticatedOwner,
+            CreateCheckoutSessionRequest request) {
         long startedAt = System.nanoTime();
+        if (!authenticatedOwner.equals(request.getUserId())) {
+            throw new BadRequestException("Payment owner does not match authenticated context");
+        }
         log.info("Stripe checkout session creation started userId={} pricingPlanId={} tokenAmount={} priceGbpPence={}",
                 request.getUserId(),
                 request.getPricingPlanId(),
