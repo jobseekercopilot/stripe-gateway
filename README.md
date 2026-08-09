@@ -1,5 +1,13 @@
 # Stripe Gateway
 
+## Role in Job Seeker Copilot
+
+| Role | Called by | Calls | Data | Local port |
+|---|---|---|---|---:|
+| Stripe checkout and signed-webhook provider boundary | Payment Gateway; Stripe webhook | Stripe/System Data and Payment Service | None | 8100 |
+
+The browser payment path and standard live Stripe profile are not enabled on `develop`. See the central [payment status](https://docs.jobseekercopilot.com/journeys/reporting-payments/) and [external integrations](https://docs.jobseekercopilot.com/infrastructure/external-integrations/).
+
 Spring Boot boundary for the inherited Stripe Checkout and webhook integration.
 
 This repository is a sanitised audit baseline, not an approved live-provider
