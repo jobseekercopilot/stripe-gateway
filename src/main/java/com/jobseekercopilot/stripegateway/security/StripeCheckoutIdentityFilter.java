@@ -20,6 +20,10 @@ public final class StripeCheckoutIdentityFilter extends OncePerRequestFilter {
     public static final String OWNER_ATTRIBUTE = "stripePaymentOwner";
 
     private static final String CHECKOUT_PATH = "/api/v1/stripe/checkout-sessions";
+    private static final String OWNED_CHECKOUT_PATH = "/api/v2/stripe/checkout-sessions";
+    private static final String READINESS_PATH = "/api/v2/stripe/readiness";
+    private static final String LIFECYCLE_EXPIRE_PATH =
+            "/internal/v2/stripe/checkout-sessions/expire";
     private static final String LEGACY_OWNER_HEADER = "X-User-Id";
     private static final int MAXIMUM_OWNER_LENGTH = 128;
 
@@ -35,7 +39,11 @@ public final class StripeCheckoutIdentityFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().equals(CHECKOUT_PATH);
+        String path = request.getRequestURI();
+        return !path.equals(CHECKOUT_PATH)
+                && !path.equals(OWNED_CHECKOUT_PATH)
+                && !path.equals(READINESS_PATH)
+                && !path.equals(LIFECYCLE_EXPIRE_PATH);
     }
 
     @Override
@@ -44,13 +52,18 @@ public final class StripeCheckoutIdentityFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         List<String> tokens = headers(request, SERVICE_TOKEN_HEADER);
+        boolean lifecycle = request.getRequestURI().equals(LIFECYCLE_EXPIRE_PATH);
         if (tokens.size() != 1
-                || !credentials.authenticatesPaymentGateway(tokens.get(0))) {
+                || !(lifecycle
+                ? credentials.authenticatesPaymentLifecycle(tokens.get(0))
+                : credentials.authenticatesPaymentGateway(tokens.get(0)))) {
             reject(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
                     "SERVICE_AUTHENTICATION_REQUIRED",
-                    "Valid Payment Gateway authentication is required.");
+                    lifecycle
+                            ? "Valid Payment Service lifecycle authentication is required."
+                            : "Valid Payment Gateway authentication is required.");
             return;
         }
 
@@ -63,17 +76,18 @@ public final class StripeCheckoutIdentityFilter extends OncePerRequestFilter {
             return;
         }
 
-        List<String> owners = headers(request, OWNER_HEADER);
-        if (owners.size() != 1 || !validOwner(owners.get(0))) {
-            reject(
-                    response,
-                    HttpServletResponse.SC_BAD_REQUEST,
-                    "PAYMENT_OWNER_REQUIRED",
-                    "Exactly one valid payment owner is required.");
-            return;
+        if (!request.getRequestURI().equals(READINESS_PATH)) {
+            List<String> owners = headers(request, OWNER_HEADER);
+            if (owners.size() != 1 || !validOwner(owners.get(0))) {
+                reject(
+                        response,
+                        HttpServletResponse.SC_BAD_REQUEST,
+                        "PAYMENT_OWNER_REQUIRED",
+                        "Exactly one valid payment owner is required.");
+                return;
+            }
+            request.setAttribute(OWNER_ATTRIBUTE, owners.get(0).trim());
         }
-
-        request.setAttribute(OWNER_ATTRIBUTE, owners.get(0).trim());
         filterChain.doFilter(request, response);
     }
 

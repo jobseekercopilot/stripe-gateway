@@ -21,5 +21,8 @@ class OpenApiExportTest {
         String spec = mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         Files.writeString(Path.of("target/openapi.json"), spec);
+        if (Boolean.getBoolean("stripe.updateContract")) {
+            Files.writeString(Path.of("contracts/openapi.json"), spec);
+        }
     }
 }

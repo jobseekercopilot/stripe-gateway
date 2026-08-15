@@ -20,7 +20,7 @@ done
 
 jq -e '
     (.openapi | type == "string" and startswith("3.")) and
-    (.info.version == "2.0.0") and
+    (.info.version == "2.2.0") and
     (.components.securitySchemes.serviceToken
         | .type == "apiKey" and .in == "header" and .name == "X-Service-Token") and
     (.paths["/api/v1/stripe/checkout-sessions"].post.operationId == "createCheckoutSession") and
@@ -37,7 +37,31 @@ jq -e '
     (.components.schemas.CreateCheckoutSessionRequest.properties.tokenAmount.minimum == 1) and
     (.components.schemas.CreateCheckoutSessionRequest.properties.priceGbpPence.minimum == 1) and
     (.components.schemas.CreateCheckoutSessionResponse.properties
-        | has("sessionId") and has("checkoutUrl"))
+        | has("sessionId") and has("checkoutUrl")) and
+    (.paths["/api/v2/stripe/checkout-sessions"].post.operationId
+        == "createOwnedStripeCheckoutSession") and
+    (.paths["/api/v2/stripe/readiness"].get.operationId == "getOwnedStripeReadiness") and
+    (.paths["/internal/v2/stripe/checkout-sessions/expire"].post.operationId
+        == "expireOwnedStripeCheckoutSession") and
+    (.paths["/api/v2/stripe/checkout-sessions"].post.security
+        == [{"serviceToken": []}]) and
+    (.paths["/api/v2/stripe/checkout-sessions"].post.parameters
+        | any(.name == "X-Payment-Owner" and .in == "header" and .required == true)) and
+    (.paths["/api/v2/stripe/checkout-sessions"].post.parameters
+        | any(.name == "Idempotency-Key" and .in == "header" and .required == true)) and
+    (.paths["/api/v2/stripe/readiness"].get.security == [{"serviceToken": []}]) and
+    (.paths["/internal/v2/stripe/checkout-sessions/expire"].post.security
+        == [{"serviceToken": []}]) and
+    (.paths["/internal/v2/stripe/checkout-sessions/expire"].post.parameters
+        | any(.name == "X-Payment-Owner" and .in == "header" and .required == true)) and
+    (.components.schemas.CreateOwnedCheckoutSessionRequest.required == ["orderId"]) and
+    (.components.schemas.CreateOwnedCheckoutSessionResponse.properties
+        | has("orderId") and has("sessionId") and has("url") and
+          has("expiresAt") and has("promotionGuaranteed")) and
+    (.components.schemas.ExpireOwnedCheckoutSessionRequest.required
+        | index("orderId") != null and index("providerSessionId") != null) and
+    (.components.schemas.StripeReadinessResponse.properties
+        | has("checkoutAvailable") and has("code") and has("mode"))
 ' "$contract" >/dev/null
 
 if [[ -n "$generated" ]]; then
