@@ -32,6 +32,24 @@ public class ProviderModeSafety implements ApplicationRunner {
         if (production && providerProperties.getMode() == ExternalProviderMode.FIXTURE) {
             throw new IllegalStateException("stripe-gateway cannot start in FIXTURE mode with a production profile.");
         }
+        if (fixtureProperties.isPaymentControlEnabled()) {
+            String[] activeProfiles = environment.getActiveProfiles();
+            boolean exactTrustedProfile = activeProfiles.length == 1
+                    && "test".equalsIgnoreCase(activeProfiles[0]);
+            if (!exactTrustedProfile
+                    || production
+                    || providerProperties.getMode() != ExternalProviderMode.FIXTURE) {
+                throw new IllegalStateException(
+                        "Fixture payment control requires the single active test profile and FIXTURE mode.");
+            }
+            if (fixtureProperties.getPaymentControlToken() == null
+                    || fixtureProperties.getPaymentControlToken().length() < 32
+                    || fixtureProperties.getWebhookSecret() == null
+                    || fixtureProperties.getWebhookSecret().length() < 32) {
+                throw new IllegalStateException(
+                        "Fixture payment control requires dedicated token and webhook secret values of at least 32 characters.");
+            }
+        }
         if (production) {
             requireExplicitProductionSettings(
                     "EXTERNAL_PROVIDER_MODE",

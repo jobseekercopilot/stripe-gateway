@@ -25,7 +25,7 @@ public class OpenApiConfig {
                         .title("Stripe Gateway API")
                         .description("Fail-closed provider boundary for server-owned checkout creation, signed "
                                 + "Stripe webhooks, readiness and owner-scoped Checkout Session expiry.")
-                        .version("2.2.0")
+                        .version("2.3.0")
                         .contact(new Contact().name("Jobseeker Copilot"))
                         .license(new License().name("MIT")));
     }

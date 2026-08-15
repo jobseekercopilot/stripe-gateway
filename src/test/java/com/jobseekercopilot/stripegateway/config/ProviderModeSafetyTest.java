@@ -73,6 +73,43 @@ class ProviderModeSafetyTest {
                 .hasMessageContaining("live secret key");
     }
 
+    @Test
+    void fixturePaymentControlRequiresFixtureModeAndStrongIsolatedSecrets() {
+        ExternalProviderProperties provider = new ExternalProviderProperties();
+        FixtureProperties fixture = new FixtureProperties();
+        fixture.setPaymentControlEnabled(true);
+        fixture.setPaymentControlToken("environment-control-token-000000000001");
+        fixture.setWebhookSecret("fixture-webhook-secret-00000000000001");
+
+        assertThatThrownBy(() -> new ProviderModeSafety(
+                        provider, fixture, environment(), stripeProperties())
+                .run(new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("single active test profile");
+
+        provider.setMode(ExternalProviderMode.FIXTURE);
+        assertThatCode(() -> new ProviderModeSafety(
+                        provider, fixture, environment("test"), stripeProperties())
+                .run(new DefaultApplicationArguments(new String[0])))
+                .doesNotThrowAnyException();
+
+        for (String[] profiles : new String[][] {
+                {}, {"default"}, {"local"}, {"demo"}, {"staging"},
+                {"test", "local"}, {"test", "production"}}) {
+            assertThatThrownBy(() -> new ProviderModeSafety(
+                            provider, fixture, environment(profiles), stripeProperties())
+                    .run(new DefaultApplicationArguments(new String[0])))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        fixture.setWebhookSecret("short");
+        assertThatThrownBy(() -> new ProviderModeSafety(
+                        provider, fixture, environment("test"), stripeProperties())
+                .run(new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at least 32 characters");
+    }
+
     private ProviderModeSafety safety(
             ExternalProviderProperties provider,
             StripeProperties stripe,
@@ -108,6 +145,12 @@ class ProviderModeSafetyTest {
         environment.setProperty(
                 "PAYMENT_SERVICE_TO_STRIPE_GATEWAY_LIFECYCLE_TOKEN",
                 "payment-to-stripe-lifecycle-test-token-000001");
+        return environment;
+    }
+
+    private MockEnvironment environment(String... profiles) {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles(profiles);
         return environment;
     }
 }

@@ -13,6 +13,9 @@ fixture:
   dataset-id: ${FIXTURE_DATASET_ID:uk-software-developer-demo}
   dataset-version: ${FIXTURE_DATASET_VERSION:1.0.0}
   scenario: ${FIXTURE_SCENARIO:happy-path}
+  payment-control-enabled: ${STRIPE_FIXTURE_PAYMENT_CONTROL_ENABLED:false}
+  payment-control-token: ${STRIPE_FIXTURE_PAYMENT_CONTROL_TOKEN:}
+  webhook-secret: ${STRIPE_FIXTURE_WEBHOOK_SECRET:}
 
 stripe:
   security:
