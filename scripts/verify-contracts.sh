@@ -29,7 +29,7 @@ grep -Fx 'sha256=817afdea8af835e37b1379c47c6730811f3ef5703b29be048b092e676dcc767
 
 test "$(wc -l < "$contract_dir/payment-service.SOURCE" | tr -d ' ')" = 4
 grep -Fx 'repository=jobseekercopilot/payment-service' "$contract_dir/payment-service.SOURCE" >/dev/null
-grep -Fx 'revision=0c628cf81b8d91bebf127513bc39c950423a728b' "$contract_dir/payment-service.SOURCE" >/dev/null
+grep -Fx 'revision=ec6691d7c069118829243d901e42b2d52eb32c88' "$contract_dir/payment-service.SOURCE" >/dev/null
 grep -Fx 'path=contracts/openapi.json' "$contract_dir/payment-service.SOURCE" >/dev/null
 grep -Fx 'sha256=acf21be9eff02aced215fdfce68d7577dfc79695877d4ee0dfc188fcaa1a779a' "$contract_dir/payment-service.SOURCE" >/dev/null
 
