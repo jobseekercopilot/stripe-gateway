@@ -3,6 +3,7 @@ package com.jobseekercopilot.stripegateway.client;
 import com.jobseekercopilot.stripegateway.config.FixtureProperties;
 import com.jobseekercopilot.stripegateway.dto.CreateCheckoutSessionRequest;
 import com.jobseekercopilot.stripegateway.dto.StripeCheckoutSession;
+import com.jobseekercopilot.stripegateway.dto.PaymentOrderSnapshot;
 import com.jobseekercopilot.generated.systemdataservice.api.FixtureControllerApi;
 import com.jobseekercopilot.generated.systemdataservice.model.FixtureStripeRequest;
 import com.jobseekercopilot.generated.systemdataservice.model.FixtureStripeResponse;
@@ -44,6 +45,44 @@ public class FixtureStripeProviderClient implements StripeProviderClient {
         session.setPaymentIntent(text(body == null ? null : body.getPaymentIntentId(), "pi_demo_fixture"));
         log.info("Stripe fixture checkout session created sessionId={} datasetId={} scenario={}",
                 session.getId(), fixtureProperties.getDatasetId(), fixtureProperties.getScenario());
+        return session;
+    }
+
+    @Override
+    public StripeCheckoutSession createOwnedCheckoutSession(PaymentOrderSnapshot order) {
+        FixtureStripeRequest payload = new FixtureStripeRequest()
+                .datasetId(fixtureProperties.getDatasetId())
+                .datasetVersion(fixtureProperties.getDatasetVersion())
+                .scenario(fixtureProperties.getScenario())
+                .operation("create-owned-checkout-session")
+                .userId(order.getOwnerId())
+                .pricingPlanId(order.getPricingPlanId())
+                .tokenAmount((long) order.getDocumentCredits())
+                .priceGbpPence(order.getPriceMinor());
+        FixtureStripeResponse body = fixtureControllerApi.stripe(payload);
+        StripeCheckoutSession session = new StripeCheckoutSession();
+        session.setId(text(body == null ? null : body.getSessionId(), "cs_test_owned_fixture"));
+        session.setUrl(uriText(
+                body == null ? null : body.getCheckoutUrl(),
+                "https://fixtures.jobseekercopilot.local/stripe/checkout"));
+        session.setPaymentIntent(text(
+                body == null ? null : body.getPaymentIntentId(), "pi_owned_fixture"));
+        return session;
+    }
+
+    @Override
+    public StripeCheckoutSession retrieveOwnedCheckoutSession(String sessionId) {
+        StripeCheckoutSession session = new StripeCheckoutSession();
+        session.setId(sessionId);
+        session.setUrl("https://fixtures.jobseekercopilot.local/stripe/checkout/" + sessionId);
+        session.setStatus("open");
+        return session;
+    }
+
+    @Override
+    public StripeCheckoutSession expireOwnedCheckoutSession(String sessionId) {
+        StripeCheckoutSession session = retrieveOwnedCheckoutSession(sessionId);
+        session.setStatus("expired");
         return session;
     }
 

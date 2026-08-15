@@ -7,6 +7,7 @@ import lombok.Data;
 public class StripeCheckoutSession {
     private String id;
     private String url;
+    private String status;
 
     @JsonProperty("payment_intent")
     private String paymentIntent;

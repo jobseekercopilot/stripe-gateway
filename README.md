@@ -35,9 +35,16 @@ The captured OpenAPI contract is in `contracts/openapi.json`.
 
 Checkout creation requires `PAYMENT_GATEWAY_TO_STRIPE_GATEWAY_TOKEN`; webhook
 fulfilment authenticates to Payment Service with
-`STRIPE_GATEWAY_TO_PAYMENT_SERVICE_TOKEN`. Both secrets must contain at least
-32 bytes and must be distinct. Stripe webhook calls remain authenticated by
+`STRIPE_GATEWAY_TO_PAYMENT_SERVICE_TOKEN`; account-deletion Checkout expiry
+requires `PAYMENT_SERVICE_TO_STRIPE_GATEWAY_LIFECYCLE_TOKEN`. All three secrets
+must contain at least 32 bytes and must be distinct. Authentication Service does
+not call Stripe Gateway directly. Stripe webhook calls remain authenticated by
 `Stripe-Signature` and `STRIPE_WEBHOOK_SECRET`.
+
+The inherited caller-priced `POST /api/v1/stripe/checkout-sessions` route is
+runtime-disabled unless `STRIPE_LEGACY_CHECKOUT_ENABLED=true`; production
+startup rejects that value. Public-beta Checkout uses only the owned v2 order
+route.
 
 Run the source and compatibility gates with:
 

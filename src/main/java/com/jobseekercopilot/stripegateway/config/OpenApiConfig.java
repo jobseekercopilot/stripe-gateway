@@ -23,8 +23,9 @@ public class OpenApiConfig {
                                 .description("Dedicated Payment Gateway service identity.")))
                 .info(new Info()
                         .title("Stripe Gateway API")
-                        .description("Provider boundary for authenticated checkout creation and signed Stripe webhooks.")
-                        .version("2.0.0")
+                        .description("Fail-closed provider boundary for server-owned checkout creation, signed "
+                                + "Stripe webhooks, readiness and owner-scoped Checkout Session expiry.")
+                        .version("2.1.0")
                         .contact(new Contact().name("Jobseeker Copilot"))
                         .license(new License().name("MIT")));
     }
