@@ -9,6 +9,12 @@ public class StripeCheckoutSession {
     private String url;
     private String status;
 
+    @JsonProperty("payment_status")
+    private String paymentStatus;
+
+    @JsonProperty("expires_at")
+    private Long expiresAt;
+
     @JsonProperty("payment_intent")
     private String paymentIntent;
 }

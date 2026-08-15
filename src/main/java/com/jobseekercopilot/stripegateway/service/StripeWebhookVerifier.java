@@ -13,6 +13,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
@@ -50,8 +51,13 @@ public class StripeWebhookVerifier {
         requireWebhookSecret();
         String timestamp = headerValue(signatureHeader, "t");
         String expectedSignature = hmacSha256(timestamp + "." + payload, stripeProperties.getWebhookSecret());
-        String actualSignature = headerValue(signatureHeader, "v1");
-        if (!constantTimeEquals(expectedSignature, actualSignature)) {
+        boolean verified = false;
+        for (String candidate : headerValues(signatureHeader, "v1")) {
+            // Do not stop at the first match: rotation headers can contain
+            // multiple v1 values and each candidate gets the same comparison.
+            verified |= constantTimeEquals(expectedSignature, candidate);
+        }
+        if (!verified) {
             log.warn("Stripe webhook verification failed reason=InvalidSignature");
             throw new BadRequestException("Invalid Stripe webhook signature");
         }
@@ -74,16 +80,24 @@ public class StripeWebhookVerifier {
     }
 
     private String headerValue(String header, String key) {
+        return headerValues(header, key).get(0);
+    }
+
+    private List<String> headerValues(String header, String key) {
         if (header == null || header.isBlank()) {
             throw new BadRequestException("Missing Stripe signature header");
         }
+        java.util.ArrayList<String> values = new java.util.ArrayList<>();
         for (String part : header.split(",")) {
             String[] pieces = part.split("=", 2);
             if (pieces.length == 2 && pieces[0].trim().equals(key)) {
-                return pieces[1].trim();
+                values.add(pieces[1].trim());
             }
         }
-        throw new BadRequestException("Missing Stripe signature " + key + " value");
+        if (values.isEmpty()) {
+            throw new BadRequestException("Missing Stripe signature " + key + " value");
+        }
+        return List.copyOf(values);
     }
 
     private void verifyTimestamp(String timestamp) {

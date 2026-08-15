@@ -84,7 +84,7 @@ class StripeControllerIdentityTest {
         UUID orderId = UUID.fromString("1c05d1ab-e57b-4904-b627-e55a7132207c");
         when(stripeGatewayService.expireOwnedCheckoutSession(anyString(), any()))
                 .thenReturn(new ExpireOwnedCheckoutSessionResponse(
-                        orderId, "cs_test_owned", "EXPIRED"));
+                        orderId, "cs_test_owned", "EXPIRED", "unpaid"));
         String body = "{\"orderId\":\"" + orderId
                 + "\",\"providerSessionId\":\"cs_test_owned\"}";
 

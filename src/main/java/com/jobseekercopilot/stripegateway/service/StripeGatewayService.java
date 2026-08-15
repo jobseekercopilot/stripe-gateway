@@ -15,20 +15,25 @@ import com.jobseekercopilot.stripegateway.dto.PaymentOrderSnapshot;
 import com.jobseekercopilot.stripegateway.dto.ProviderPaymentEventRequest;
 import com.jobseekercopilot.stripegateway.dto.StripeCheckoutSession;
 import com.jobseekercopilot.stripegateway.exception.BadRequestException;
+import com.jobseekercopilot.stripegateway.exception.StripeCheckoutSagaException;
 import com.jobseekercopilot.stripegateway.exception.StripeConfigurationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.UUID;
+import org.springframework.web.client.RestClientException;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class StripeGatewayService {
+    private static final Duration MINIMUM_SAFE_PROVIDER_WINDOW = Duration.ofMinutes(31);
     private final StripeProviderClient stripeApiClient;
     private final StripeWebhookVerifier webhookVerifier;
     private final PaymentServiceClient paymentServiceClient;
@@ -94,15 +99,19 @@ public class StripeGatewayService {
         if (!replay && !"PENDING_CHECKOUT".equals(order.getStatus())) {
             throw new BadRequestException("Owned payment order is not open for Checkout");
         }
+        if (!replay) {
+            requireSafeProviderWindow(order);
+        }
         StripeCheckoutSession session = replay
                 ? stripeApiClient.retrieveOwnedCheckoutSession(order.getStripeSessionId())
-                : stripeApiClient.createOwnedCheckoutSession(order);
+                : createOwnedProviderSessionWithReplay(authenticatedOwner, order);
         if (session == null || session.getId() == null || session.getId().isBlank()
                 || session.getUrl() == null || session.getUrl().isBlank()) {
             throw new BadRequestException("Stripe Checkout returned an incomplete session");
         }
-        PaymentOrderSnapshot bound = replay ? order : paymentServiceClient.bindCheckoutSession(
-                authenticatedOwner, order.getOrderId(), session.getId());
+        PaymentOrderSnapshot bound = replay
+                ? order
+                : bindOrCompensate(authenticatedOwner, order, session);
         if (bound == null
                 || !"CHECKOUT_OPEN".equals(bound.getStatus())
                 || !session.getId().equals(bound.getStripeSessionId())) {
@@ -116,6 +125,151 @@ public class StripeGatewayService {
                 .promotionBonusDocumentCredits(order.getPromotionBonusDocumentCredits())
                 .promotionGuaranteed(order.isPromotionGuaranteed())
                 .build();
+    }
+
+    private void requireSafeProviderWindow(PaymentOrderSnapshot order) {
+        if (order.getExpiresAt() == null
+                || Duration.between(Instant.now(), order.getExpiresAt())
+                .compareTo(MINIMUM_SAFE_PROVIDER_WINDOW) < 0) {
+            throw new BadRequestException(
+                    "Owned payment order has insufficient time remaining for Stripe Checkout");
+        }
+    }
+
+    private StripeCheckoutSession createOwnedProviderSessionWithReplay(
+            String owner, PaymentOrderSnapshot order) {
+        try {
+            return stripeApiClient.createOwnedCheckoutSession(order);
+        } catch (RestClientException firstAmbiguousOutcome) {
+            PaymentOrderSnapshot reconciled = readOrderForSaga(owner, order.getOrderId());
+            if (sameBoundSession(reconciled, reconciled.getStripeSessionId())) {
+                return stripeApiClient.retrieveOwnedCheckoutSession(
+                        reconciled.getStripeSessionId());
+            }
+            if (!"PENDING_CHECKOUT".equals(reconciled.getStatus())) {
+                throw new StripeCheckoutSagaException(
+                        "Stripe Checkout creation could not be reconciled with the durable order.",
+                        firstAmbiguousOutcome);
+            }
+            try {
+                // Stripe's provider request uses the order ID as its idempotency
+                // key, so this is a replay/read of the first outcome, not a new
+                // Checkout session.
+                return stripeApiClient.createOwnedCheckoutSession(order);
+            } catch (RestClientException stillAmbiguous) {
+                throw new StripeCheckoutSagaException(
+                        "Stripe Checkout creation remains ambiguous and will be retried with the same order.",
+                        stillAmbiguous);
+            }
+        }
+    }
+
+    private PaymentOrderSnapshot bindOrCompensate(
+            String owner,
+            PaymentOrderSnapshot original,
+            StripeCheckoutSession session) {
+        try {
+            PaymentOrderSnapshot bound = paymentServiceClient.bindCheckoutSession(
+                    owner, original.getOrderId(), session.getId());
+            if (sameBoundSession(bound, session.getId())) {
+                return bound;
+            }
+        } catch (RestClientException ambiguousBind) {
+            log.warn("Checkout bind response will be reconciled orderId={} sessionId={} error={}",
+                    original.getOrderId(), session.getId(),
+                    ambiguousBind.getClass().getSimpleName());
+        }
+
+        PaymentOrderSnapshot reconciled = readOrderForSaga(owner, original.getOrderId());
+        if (sameBoundSession(reconciled, session.getId())) {
+            return reconciled;
+        }
+
+        StripeCheckoutSession terminal = terminateUnboundProviderSession(session.getId());
+        if (!"expired".equalsIgnoreCase(terminal.getStatus())) {
+            throw new StripeCheckoutSagaException(
+                    "The Checkout session may have completed and requires payment reconciliation.");
+        }
+        if ("PENDING_CHECKOUT".equals(reconciled.getStatus())) {
+            cancelLocalOrderAfterProviderExpiry(owner, reconciled.getOrderId());
+        }
+        throw new StripeCheckoutSagaException(
+                "The unbound Checkout session was safely expired; create a new Checkout attempt.");
+    }
+
+    private StripeCheckoutSession terminateUnboundProviderSession(String sessionId) {
+        try {
+            StripeCheckoutSession terminal =
+                    stripeApiClient.expireOwnedCheckoutSession(sessionId);
+            if (terminal != null
+                    && sessionId.equals(terminal.getId())
+                    && ("expired".equalsIgnoreCase(terminal.getStatus())
+                    || "complete".equalsIgnoreCase(terminal.getStatus()))) {
+                return terminal;
+            }
+        } catch (RestClientException ambiguousExpiry) {
+            try {
+                StripeCheckoutSession reread =
+                        stripeApiClient.retrieveOwnedCheckoutSession(sessionId);
+                if (reread != null
+                        && sessionId.equals(reread.getId())
+                        && ("expired".equalsIgnoreCase(reread.getStatus())
+                        || "complete".equalsIgnoreCase(reread.getStatus()))) {
+                    return reread;
+                }
+            } catch (RestClientException stillAmbiguous) {
+                ambiguousExpiry.addSuppressed(stillAmbiguous);
+            }
+            throw new StripeCheckoutSagaException(
+                    "Checkout session terminal state is ambiguous and will be reconciled before local cancellation.",
+                    ambiguousExpiry);
+        }
+        throw new StripeCheckoutSagaException(
+                "Checkout session terminal state is not confirmed; local cancellation is blocked.");
+    }
+
+    private void cancelLocalOrderAfterProviderExpiry(String owner, UUID orderId) {
+        try {
+            PaymentOrderSnapshot cancelled = paymentServiceClient.cancelOrder(owner, orderId);
+            if (terminalLocalOrder(cancelled)) {
+                return;
+            }
+        } catch (RestClientException ambiguousCancellation) {
+            log.warn("Local order cancellation response will be reconciled orderId={} error={}",
+                    orderId, ambiguousCancellation.getClass().getSimpleName());
+        }
+        PaymentOrderSnapshot reread = readOrderForSaga(owner, orderId);
+        if (!terminalLocalOrder(reread)) {
+            throw new StripeCheckoutSagaException(
+                    "Provider expiry is confirmed but local order cancellation remains pending.");
+        }
+    }
+
+    private PaymentOrderSnapshot readOrderForSaga(String owner, UUID orderId) {
+        try {
+            PaymentOrderSnapshot order = paymentServiceClient.order(owner, orderId);
+            if (order == null || !orderId.equals(order.getOrderId())) {
+                throw new StripeCheckoutSagaException(
+                        "The durable payment order could not be reconciled.");
+            }
+            return order;
+        } catch (RestClientException ambiguousRead) {
+            throw new StripeCheckoutSagaException(
+                    "The durable payment order could not be re-read safely.", ambiguousRead);
+        }
+    }
+
+    private boolean sameBoundSession(PaymentOrderSnapshot order, String sessionId) {
+        return order != null
+                && "CHECKOUT_OPEN".equals(order.getStatus())
+                && sessionId != null
+                && sessionId.equals(order.getStripeSessionId());
+    }
+
+    private boolean terminalLocalOrder(PaymentOrderSnapshot order) {
+        return order != null
+                && ("CANCELLED".equals(order.getStatus())
+                || "EXPIRED".equals(order.getStatus()));
     }
 
     private boolean validTaxSnapshot(PaymentOrderSnapshot order) {
@@ -133,19 +287,27 @@ public class StripeGatewayService {
         if (order == null
                 || !request.orderId().equals(order.getOrderId())
                 || !authenticatedOwner.equals(order.getOwnerId())
-                || !"CANCELLED".equals(order.getStatus())
+                || !("CANCELLED".equals(order.getStatus())
+                || "CHECKOUT_OPEN".equals(order.getStatus()))
                 || !request.providerSessionId().equals(order.getStripeSessionId())) {
             throw new BadRequestException(
-                    "Cancelled owned payment order does not match the Checkout session");
+                    "Owned payment order does not match the Checkout session");
         }
-        StripeCheckoutSession expired = stripeApiClient.expireOwnedCheckoutSession(
+        StripeCheckoutSession terminal = stripeApiClient.expireOwnedCheckoutSession(
                 request.providerSessionId());
-        if (expired == null || !request.providerSessionId().equals(expired.getId())
-                || !"expired".equals(expired.getStatus())) {
-            throw new BadRequestException("Stripe Checkout session was not confirmed expired");
+        if (terminal == null || !request.providerSessionId().equals(terminal.getId())
+                || terminal.getStatus() == null
+                || !("expired".equalsIgnoreCase(terminal.getStatus())
+                || "complete".equalsIgnoreCase(terminal.getStatus()))) {
+            throw new StripeCheckoutSagaException(
+                    "Stripe Checkout terminal state was not confirmed");
         }
         return new ExpireOwnedCheckoutSessionResponse(
-                order.getOrderId(), expired.getId(), "EXPIRED");
+                order.getOrderId(),
+                terminal.getId(),
+                terminal.getStatus().toUpperCase(Locale.ROOT),
+                terminal.getPaymentStatus() == null
+                        ? null : terminal.getPaymentStatus().toUpperCase(Locale.ROOT));
     }
 
     public void handleWebhook(String payload, String signatureHeader) {

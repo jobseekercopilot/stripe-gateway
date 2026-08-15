@@ -33,6 +33,10 @@ generated sources, JARs or real Stripe credentials.
 
 The captured OpenAPI contract is in `contracts/openapi.json`.
 
+Version `2.2.0` binds provider Checkout creation to the durable order expiry,
+replays create/bind outcomes by stable order identity, and reports a terminal
+provider status before local cancellation or account-revocation progress.
+
 Checkout creation requires `PAYMENT_GATEWAY_TO_STRIPE_GATEWAY_TOKEN`; webhook
 fulfilment authenticates to Payment Service with
 `STRIPE_GATEWAY_TO_PAYMENT_SERVICE_TOKEN`; account-deletion Checkout expiry

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @Component
 @RequiredArgsConstructor
@@ -108,18 +109,32 @@ public class StripeApiClient implements StripeProviderClient {
     @Override
     public StripeCheckoutSession expireOwnedCheckoutSession(String sessionId) {
         StripeCheckoutSession current = retrieveOwnedCheckoutSession(sessionId);
-        if (current != null && "expired".equals(current.getStatus())) return current;
-        return stripeRestClient.post()
-                .uri("/v1/checkout/sessions/{sessionId}/expire", sessionId)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .headers(headers -> {
-                    headers.setBearerAuth(stripeProperties.getSecretKey());
-                    headers.set("Stripe-Version", stripeProperties.getApiVersion());
-                    headers.set("Idempotency-Key", "expire:" + sessionId);
-                })
-                .body(new LinkedMultiValueMap<String, String>())
-                .retrieve()
-                .body(StripeCheckoutSession.class);
+        if (current != null
+                && ("expired".equals(current.getStatus())
+                || "complete".equals(current.getStatus()))) {
+            return current;
+        }
+        try {
+            return stripeRestClient.post()
+                    .uri("/v1/checkout/sessions/{sessionId}/expire", sessionId)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .headers(headers -> {
+                        headers.setBearerAuth(stripeProperties.getSecretKey());
+                        headers.set("Stripe-Version", stripeProperties.getApiVersion());
+                        headers.set("Idempotency-Key", "expire:" + sessionId);
+                    })
+                    .body(new LinkedMultiValueMap<String, String>())
+                    .retrieve()
+                    .body(StripeCheckoutSession.class);
+        } catch (RestClientException ambiguous) {
+            StripeCheckoutSession reconciled = retrieveOwnedCheckoutSession(sessionId);
+            if (reconciled != null
+                    && ("expired".equals(reconciled.getStatus())
+                    || "complete".equals(reconciled.getStatus()))) {
+                return reconciled;
+            }
+            throw ambiguous;
+        }
     }
 
     private void requireStripeSecret() {

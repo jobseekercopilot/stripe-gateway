@@ -67,6 +67,9 @@ public class FixtureStripeProviderClient implements StripeProviderClient {
                 "https://fixtures.jobseekercopilot.local/stripe/checkout"));
         session.setPaymentIntent(text(
                 body == null ? null : body.getPaymentIntentId(), "pi_owned_fixture"));
+        session.setStatus("open");
+        session.setPaymentStatus("unpaid");
+        session.setExpiresAt(order.getExpiresAt().getEpochSecond());
         return session;
     }
 
@@ -76,6 +79,7 @@ public class FixtureStripeProviderClient implements StripeProviderClient {
         session.setId(sessionId);
         session.setUrl("https://fixtures.jobseekercopilot.local/stripe/checkout/" + sessionId);
         session.setStatus("open");
+        session.setPaymentStatus("unpaid");
         return session;
     }
 

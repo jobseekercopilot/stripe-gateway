@@ -55,6 +55,15 @@ public class PaymentServiceClient {
                 .body(PaymentOrderSnapshot.class);
     }
 
+    public PaymentOrderSnapshot cancelOrder(String owner, UUID orderId) {
+        return paymentServiceRestClient.post()
+                .uri("/api/v2/payments/orders/{orderId}/cancel", orderId)
+                .header(SERVICE_TOKEN_HEADER, credentials.paymentServiceToken())
+                .header(OWNER_HEADER, owner)
+                .retrieve()
+                .body(PaymentOrderSnapshot.class);
+    }
+
     public void providerEvent(ProviderPaymentEventRequest request) {
         paymentServiceRestClient.post()
                 .uri("/api/v2/payments/provider-events/stripe")
