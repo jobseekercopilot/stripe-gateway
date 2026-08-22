@@ -4,15 +4,17 @@ Stripe Gateway has two distinct authenticated boundaries.
 
 ## Checkout creation
 
-Only Payment Gateway may call `POST /api/v1/stripe/checkout-sessions`. The call
+Only Payment Gateway may call the owned
+`POST /api/v2/stripe/checkout-sessions` route. The call
 must contain exactly one valid `X-Service-Token` and one valid
 `X-Payment-Owner`. Stripe Gateway rejects missing, forged or ambiguous
 credentials and rejects the legacy caller-selected `X-User-Id` header.
 
-The request body still carries `userId` because it becomes signed Stripe
-metadata. It must exactly match `X-Payment-Owner`; a mismatch is rejected before
-the provider is called. Payment Gateway must derive that owner from its trusted
-upstream context.
+The request carries a Payment Service order identifier, not a browser-selected
+price or user identifier. Stripe Gateway resolves the authoritative order and
+requires its owner to match `X-Payment-Owner` before the provider is called.
+The inherited `/api/v1/stripe/checkout-sessions` route is disabled by default
+and cannot be enabled in production.
 
 `PAYMENT_GATEWAY_TO_STRIPE_GATEWAY_TOKEN` authenticates this boundary.
 
