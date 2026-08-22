@@ -62,7 +62,7 @@ class FixturePaymentControlServiceTest {
             assertThat(event.getStripeSessionId()).isEqualTo(sessionId);
             assertThat(event.getPaymentStatus()).isEqualTo("paid");
             assertThat(event.getCheckoutStatus()).isEqualTo("complete");
-            assertThat(event.getAmountTotalMinor()).isEqualTo(799);
+            assertThat(event.getAmountTotalMinor()).isEqualTo(499);
             assertThat(event.getCurrency()).isEqualTo("gbp");
             assertThat(event.getBillingCountry()).isEqualTo("GB");
             assertThat(event.getLiveMode()).isFalse();
@@ -136,7 +136,7 @@ class FixturePaymentControlServiceTest {
         order.setPricingPlanId("starter");
         order.setDocumentCredits(10);
         order.setPromotionBonusDocumentCredits(5);
-        order.setPriceMinor(799);
+        order.setPriceMinor(499);
         order.setCurrency("GBP");
         order.setBillingCountry("GB");
         order.setExpiresAt(Instant.now().plusSeconds(3600));

@@ -42,6 +42,12 @@ Before any network-mode rehearsal:
    in Client, Landing, Authentication, Payment and the launch approval record.
 5. Keep the legacy caller-priced route off:
    `STRIPE_LEGACY_CHECKOUT_ENABLED=false`.
+6. If the AWS Activate Stripe for Startups offer is available to the account,
+   claim its $500 fee credit only when the verified live account is ready to
+   process payments. Stripe documents a 12-month period from activation (or
+   earlier exhaustion of the offer limit) and one redemption per startup.
+   Confirm the credit in Stripe's Reports area before relying on it; do not
+   remove normal processing fees from the permanent cost model.
 
 ## Test-mode rehearsal
 

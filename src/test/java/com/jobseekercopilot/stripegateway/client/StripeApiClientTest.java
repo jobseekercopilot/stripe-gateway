@@ -37,9 +37,9 @@ class StripeApiClientTest {
         order.setStatus("PENDING_CHECKOUT");
         order.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
         order.setCurrency("GBP");
-        order.setPriceMinor(1699);
+        order.setPriceMinor(1199);
         order.setPricingPlanName("Active");
-        order.setCatalogVersion("public-beta-2026-08-15");
+        order.setCatalogVersion("public-beta-2026-08-22");
         long remainingSeconds = Duration.between(
                 Instant.now(), order.getExpiresAt()).toSeconds();
         org.assertj.core.api.Assertions.assertThat(remainingSeconds)
