@@ -30,6 +30,9 @@ stripe:
   legacy-checkout-enabled: ${STRIPE_LEGACY_CHECKOUT_ENABLED:false}
   success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/payment/success}
   cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/payment/cancel}
+  starter-price-id: ${STRIPE_PRICE_STARTER:}
+  active-price-id: ${STRIPE_PRICE_ACTIVE:}
+  power-price-id: ${STRIPE_PRICE_POWER:}
 
 services:
   payment-service:

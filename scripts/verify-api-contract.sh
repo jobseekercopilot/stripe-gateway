@@ -20,7 +20,7 @@ done
 
 jq -e '
     (.openapi | type == "string" and startswith("3.")) and
-    (.info.version == "2.3.0") and
+    (.info.version == "2.4.0") and
     (.components.securitySchemes.serviceToken
         | .type == "apiKey" and .in == "header" and .name == "X-Service-Token") and
     (.paths["/api/v1/stripe/checkout-sessions"].post.operationId == "createCheckoutSession") and
@@ -61,7 +61,9 @@ jq -e '
     (.components.schemas.ExpireOwnedCheckoutSessionRequest.required
         | index("orderId") != null and index("providerSessionId") != null) and
     (.components.schemas.StripeReadinessResponse.properties
-        | has("checkoutAvailable") and has("code") and has("mode"))
+        | has("checkoutAvailable") and has("code") and has("mode")) and
+    (.components.schemas.StripeReadinessResponse.properties.code.enum
+        | index("STRIPE_CATALOG_NOT_CONFIGURED") != null)
 ' "$contract" >/dev/null
 
 if [[ -n "$generated" ]]; then

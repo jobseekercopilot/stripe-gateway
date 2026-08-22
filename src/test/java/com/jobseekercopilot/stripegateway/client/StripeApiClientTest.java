@@ -29,6 +29,7 @@ class StripeApiClientTest {
         properties.setApiVersion("2025-06-30.basil");
         properties.setSuccessUrl("https://app.example.test/payment/success");
         properties.setCancelUrl("https://app.example.test/payment/cancel");
+        properties.setActivePriceId("price_active1199");
         StripeApiClient client = new StripeApiClient(builder.build(), properties);
 
         PaymentOrderSnapshot order = new PaymentOrderSnapshot();
@@ -38,6 +39,7 @@ class StripeApiClientTest {
         order.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
         order.setCurrency("GBP");
         order.setPriceMinor(1199);
+        order.setPricingPlanId("active");
         order.setPricingPlanName("Active");
         order.setCatalogVersion("public-beta-2026-08-22");
         long remainingSeconds = Duration.between(
@@ -52,6 +54,10 @@ class StripeApiClientTest {
                         "checkout:" + order.getOrderId()))
                 .andExpect(content().string(containsString(
                         "expires_at=" + order.getExpiresAt().getEpochSecond())))
+                .andExpect(content().string(containsString(
+                        "line_items%5B0%5D%5Bprice%5D=price_active1199")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(
+                        "price_data"))))
                 .andRespond(withSuccess(
                         "{\"id\":\"cs_test_owned\",\"status\":\"open\"}",
                         MediaType.APPLICATION_JSON));
@@ -59,5 +65,26 @@ class StripeApiClientTest {
         client.createOwnedCheckoutSession(order);
 
         server.verify();
+    }
+
+    @Test
+    void ownedCheckoutFailsClosedWhenTheServerPlanHasNoApprovedLivePrice() {
+        StripeProperties properties = new StripeProperties();
+        properties.setSecretKey("sk_test_owned_checkout");
+        properties.setApiVersion("2026-02-25.clover");
+        properties.setSuccessUrl("https://app.example.test/payment/success");
+        properties.setCancelUrl("https://app.example.test/payment/cancel");
+        StripeApiClient client = new StripeApiClient(RestClient.create(), properties);
+
+        PaymentOrderSnapshot order = new PaymentOrderSnapshot();
+        order.setOrderId(UUID.randomUUID());
+        order.setStatus("PENDING_CHECKOUT");
+        order.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
+        order.setPricingPlanId("starter");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> client.createOwnedCheckoutSession(order))
+                .isInstanceOf(com.jobseekercopilot.stripegateway.exception.StripeConfigurationException.class)
+                .hasMessageContaining("approved Stripe Price ID");
     }
 }
