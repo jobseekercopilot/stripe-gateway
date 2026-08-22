@@ -55,7 +55,7 @@ class FixtureStripeSessionStoreTest {
         order.setPricingPlanId("starter");
         order.setDocumentCredits(10);
         order.setPromotionBonusDocumentCredits(5);
-        order.setPriceMinor(799);
+        order.setPriceMinor(499);
         order.setCurrency("GBP");
         order.setBillingCountry("GB");
         order.setExpiresAt(Instant.now().plusSeconds(3600));

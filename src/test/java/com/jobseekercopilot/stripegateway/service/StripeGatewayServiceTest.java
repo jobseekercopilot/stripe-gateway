@@ -378,7 +378,7 @@ class StripeGatewayServiceTest {
                 {"id":"evt_owned","type":"checkout.session.completed","livemode":false,
                  "created":1700000000,"data":{"object":{"id":"cs_test_owned",
                  "payment_intent":"pi_test_owned","payment_status":"paid","status":"complete",
-                 "currency":"gbp","amount_total":1699,"client_reference_id":"%s",
+                 "currency":"gbp","amount_total":1199,"client_reference_id":"%s",
                  "metadata":{"orderId":"%s"},
                  "customer_details":{"address":{"country":"GB"}}}}}
                 """.formatted(orderId, orderId);
@@ -390,7 +390,7 @@ class StripeGatewayServiceTest {
         verify(payments).providerEvent(captor.capture());
         assertThat(captor.getValue().getOrderId()).isEqualTo(orderId);
         assertThat(captor.getValue().getBillingCountry()).isEqualTo("GB");
-        assertThat(captor.getValue().getAmountTotalMinor()).isEqualTo(1699);
+        assertThat(captor.getValue().getAmountTotalMinor()).isEqualTo(1199);
         assertThat(captor.getValue().getLiveMode()).isFalse();
         assertThat(captor.getValue().getPayloadSha256()).hasSize(64);
     }
@@ -436,13 +436,13 @@ class StripeGatewayServiceTest {
         order.setOrderId(UUID.fromString("1c05d1ab-e57b-4904-b627-e55a7132207c"));
         order.setOwnerId("owner-123");
         order.setStatus(status);
-        order.setCatalogVersion("public-beta-2026-08-15");
+        order.setCatalogVersion("public-beta-2026-08-22");
         order.setPricingPlanId("active");
         order.setPricingPlanName("Active");
         order.setDocumentCredits(25);
         order.setPromotionBonusDocumentCredits(13);
         order.setPromotionGuaranteed(true);
-        order.setPriceMinor(1699);
+        order.setPriceMinor(1199);
         order.setCurrency("GBP");
         order.setBillingCountry("GB");
         order.setTaxTreatment("VAT_NOT_CHARGED");
@@ -474,7 +474,7 @@ class StripeGatewayServiceTest {
         request.setUserId("user-123");
         request.setPricingPlanId("starter");
         request.setTokenAmount(100000);
-        request.setPriceGbpPence(799);
+        request.setPriceGbpPence(499);
         return request;
     }
 

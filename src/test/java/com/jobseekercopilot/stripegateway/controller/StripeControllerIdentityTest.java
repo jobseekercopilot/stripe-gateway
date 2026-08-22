@@ -32,7 +32,7 @@ class StripeControllerIdentityTest {
     @Test
     void directOrForgedCheckoutCallsFailClosed() throws Exception {
         String request = """
-                {"userId":"owner-123","pricingPlanId":"starter","tokenAmount":100000,"priceGbpPence":799}
+                {"userId":"owner-123","pricingPlanId":"starter","tokenAmount":100000,"priceGbpPence":499}
                 """;
 
         mockMvc.perform(post("/api/v1/stripe/checkout-sessions")
@@ -55,7 +55,7 @@ class StripeControllerIdentityTest {
     @Test
     void legacyOrAmbiguousOwnerContextIsRejected() throws Exception {
         String request = """
-                {"userId":"owner-123","pricingPlanId":"starter","tokenAmount":100000,"priceGbpPence":799}
+                {"userId":"owner-123","pricingPlanId":"starter","tokenAmount":100000,"priceGbpPence":499}
                 """;
 
         mockMvc.perform(post("/api/v1/stripe/checkout-sessions")
