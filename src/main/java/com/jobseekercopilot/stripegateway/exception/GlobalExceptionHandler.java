@@ -28,6 +28,14 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", "STRIPE_NOT_CONFIGURED", "message", exception.getMessage()));
     }
 
+    @ExceptionHandler(StripeCheckoutSagaException.class)
+    ResponseEntity<Map<String, String>> checkoutSaga(StripeCheckoutSagaException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of(
+                        "error", "CHECKOUT_RECONCILIATION_PENDING",
+                        "message", exception.getMessage()));
+    }
+
     @ExceptionHandler(RestClientException.class)
     ResponseEntity<Map<String, String>> downstream(RestClientException exception) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)

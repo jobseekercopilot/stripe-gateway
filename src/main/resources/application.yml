@@ -6,20 +6,33 @@ server:
   port: ${SERVER_PORT:8100}
 
 external-provider:
-  mode: ${EXTERNAL_PROVIDER_MODE:LIVE}
+  mode: ${EXTERNAL_PROVIDER_MODE:DISABLED}
 
 fixture:
   system-data-service-url: ${SYSTEM_DATA_SERVICE_URL:http://localhost:8103}
   dataset-id: ${FIXTURE_DATASET_ID:uk-software-developer-demo}
   dataset-version: ${FIXTURE_DATASET_VERSION:1.0.0}
   scenario: ${FIXTURE_SCENARIO:happy-path}
+  payment-control-enabled: ${STRIPE_FIXTURE_PAYMENT_CONTROL_ENABLED:false}
+  payment-control-token: ${STRIPE_FIXTURE_PAYMENT_CONTROL_TOKEN:}
+  webhook-secret: ${STRIPE_FIXTURE_WEBHOOK_SECRET:}
 
 stripe:
+  security:
+    payment-gateway-token: ${PAYMENT_GATEWAY_TO_STRIPE_GATEWAY_TOKEN:}
+    payment-service-token: ${STRIPE_GATEWAY_TO_PAYMENT_SERVICE_TOKEN:}
+    payment-lifecycle-token: ${PAYMENT_SERVICE_TO_STRIPE_GATEWAY_LIFECYCLE_TOKEN:}
   api-base-url: ${STRIPE_API_BASE_URL:https://api.stripe.com}
   secret-key: ${STRIPE_SECRET_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  api-version: ${STRIPE_API_VERSION:}
+  live-release-authorised: ${STRIPE_LIVE_RELEASE_AUTHORISED:false}
+  legacy-checkout-enabled: ${STRIPE_LEGACY_CHECKOUT_ENABLED:false}
   success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/payment/success}
   cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/payment/cancel}
+  starter-price-id: ${STRIPE_PRICE_STARTER:}
+  active-price-id: ${STRIPE_PRICE_ACTIVE:}
+  power-price-id: ${STRIPE_PRICE_POWER:}
 
 services:
   payment-service:

@@ -10,6 +10,9 @@ public class FixtureProperties {
     private String datasetId = "uk-software-developer-demo";
     private String datasetVersion = "1.0.0";
     private String scenario = "happy-path";
+    private boolean paymentControlEnabled;
+    private String paymentControlToken;
+    private String webhookSecret;
 
     public String getSystemDataServiceUrl() {
         return systemDataServiceUrl;
@@ -41,5 +44,29 @@ public class FixtureProperties {
 
     public void setScenario(String scenario) {
         this.scenario = scenario;
+    }
+
+    public boolean isPaymentControlEnabled() {
+        return paymentControlEnabled;
+    }
+
+    public void setPaymentControlEnabled(boolean paymentControlEnabled) {
+        this.paymentControlEnabled = paymentControlEnabled;
+    }
+
+    public String getPaymentControlToken() {
+        return paymentControlToken;
+    }
+
+    public void setPaymentControlToken(String paymentControlToken) {
+        this.paymentControlToken = paymentControlToken;
+    }
+
+    public String getWebhookSecret() {
+        return webhookSecret;
+    }
+
+    public void setWebhookSecret(String webhookSecret) {
+        this.webhookSecret = webhookSecret;
     }
 }
