@@ -71,9 +71,12 @@ public class ProviderModeSafety implements ApplicationRunner {
                 throw new IllegalStateException(
                         "Stripe LIVE mode requires explicit release authorisation.");
             }
+            String requiredKeyPrefix = production ? "sk_live_" : "sk_test_";
             if (stripeProperties.getSecretKey() == null
-                    || !stripeProperties.getSecretKey().startsWith("sk_live_")) {
-                throw new IllegalStateException("Stripe LIVE mode requires a live secret key.");
+                    || !stripeProperties.getSecretKey().startsWith(requiredKeyPrefix)) {
+                throw new IllegalStateException(production
+                        ? "Stripe production LIVE mode requires a live secret key."
+                        : "Stripe non-production network mode requires a test secret key.");
             }
             if (stripeProperties.getWebhookSecret() == null
                     || !stripeProperties.getWebhookSecret().startsWith("whsec_")) {

@@ -60,14 +60,41 @@ class ProviderModeSafetyTest {
     }
 
     @Test
-    void liveModeRequiresARealLiveKeyAndReleaseAuthorisation() {
+    void nonProductionNetworkModeRequiresAnExplicitTestKeyAndReleaseAuthorisation() {
         ExternalProviderProperties provider = new ExternalProviderProperties();
         provider.setMode(ExternalProviderMode.LIVE);
         StripeProperties stripe = stripeProperties();
         stripe.setLiveReleaseAuthorised(true);
-        stripe.setSecretKey("sk_test_not-live");
+        stripe.setSecretKey("sk_test_release-rehearsal-key");
 
+        assertThatCode(() -> safety(provider, stripe, new MockEnvironment()).run(
+                        new DefaultApplicationArguments(new String[0])))
+                .doesNotThrowAnyException();
+
+        stripe.setSecretKey("sk_live_must-not-run-outside-production");
         assertThatThrownBy(() -> safety(provider, stripe, new MockEnvironment()).run(
+                        new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("test secret key");
+    }
+
+    @Test
+    void productionNetworkModeRequiresTheLiveKeyAndExplicitProductionSettings() {
+        ExternalProviderProperties provider = new ExternalProviderProperties();
+        provider.setMode(ExternalProviderMode.LIVE);
+        StripeProperties stripe = stripeProperties();
+        stripe.setLiveReleaseAuthorised(true);
+        stripe.setSecretKey("sk_live_release-key");
+        MockEnvironment environment = productionEnvironment();
+        environment.setProperty("EXTERNAL_PROVIDER_MODE", "LIVE");
+        environment.setProperty("STRIPE_LIVE_RELEASE_AUTHORISED", "true");
+
+        assertThatCode(() -> safety(provider, stripe, environment).run(
+                        new DefaultApplicationArguments(new String[0])))
+                .doesNotThrowAnyException();
+
+        stripe.setSecretKey("sk_test_not-valid-in-production");
+        assertThatThrownBy(() -> safety(provider, stripe, environment).run(
                         new DefaultApplicationArguments(new String[0])))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("live secret key");
@@ -122,6 +149,7 @@ class ProviderModeSafetyTest {
         StripeProperties stripe = new StripeProperties();
         stripe.setApiBaseUrl("https://api.stripe.com");
         stripe.setApiVersion("2026-02-25.clover");
+        stripe.setWebhookSecret("whsec_release-test-signing-secret");
         stripe.setSuccessUrl("https://app.example.test/payment/success");
         stripe.setCancelUrl("https://app.example.test/payment/cancel");
         stripe.setLiveReleaseAuthorised(false);

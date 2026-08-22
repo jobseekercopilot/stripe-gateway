@@ -1,7 +1,13 @@
 # Stripe Gateway beta-readiness audit
 
+> **Historical audit.** This document records the 23 July 2026 inherited
+> baseline. Its findings drove the owned-v2 Checkout, signed-event,
+> idempotency, recovery and contract work now present in the repository. It is
+> not the current release decision. See `STRIPE_CUTOVER.md`, the current tests
+> and the central launch approval record for the active fail-closed decision.
+
 Audit date: 2026-07-23  
-Decision: **Not ready for private beta or live Stripe traffic**
+Decision at audit date: **Not ready for private beta or live Stripe traffic**
 
 This is an audit baseline only. No provider call, charge or deployment was made.
 
