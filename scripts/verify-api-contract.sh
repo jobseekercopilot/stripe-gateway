@@ -20,7 +20,7 @@ done
 
 jq -e '
     (.openapi | type == "string" and startswith("3.")) and
-    (.info.version == "2.2.0") and
+    (.info.version == "2.3.0") and
     (.components.securitySchemes.serviceToken
         | .type == "apiKey" and .in == "header" and .name == "X-Service-Token") and
     (.paths["/api/v1/stripe/checkout-sessions"].post.operationId == "createCheckoutSession") and
