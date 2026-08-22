@@ -6,10 +6,31 @@ until every reviewed approval and release condition below is evidenced.
 
 ## What Stripe must contain
 
-The application does not require Stripe Product or Price objects. Payment
-Service owns the immutable catalogue and order snapshot; Stripe Gateway sends
-that snapshot as inline GBP `price_data` with one Checkout line item. Do not
-duplicate or manually edit the catalogue in Stripe.
+The application uses three permanent live Products and immutable, one-off GBP
+Prices. Payment Service still owns the commercial amount and generation
+allowance; Stripe Gateway maps the stable server-side pack ID to the separately
+approved live Price ID. The browser supplies neither amount nor Price ID.
+
+| Pack | Product wording | Price | Environment mapping |
+|---|---|---:|---|
+| Starter | 10 document generations | £4.99 | `STRIPE_PRICE_STARTER` |
+| Active | 25 document generations | £11.99 | `STRIPE_PRICE_ACTIVE` |
+| Power | 60 document generations | £19.99 | `STRIPE_PRICE_POWER` |
+
+Put the temporary catalogue-management key in the owner-only shared
+`config/.secrets.env` file as `STRIPE_LIVE_CATALOG_ADMIN_KEY`. Run
+`scripts/reconcile-live-catalogue.sh` with that file and a protected output
+path. The script parses only that exact variable without sourcing the file,
+reuses exact JSC-owned objects, creates only missing objects and refuses
+ambiguous matches. It never prints the key. Review any other active Prices in
+the Dashboard before explicitly archiving them; never delete financial history
+or archive an unrelated object.
+
+```bash
+scripts/reconcile-live-catalogue.sh \
+  ../config/.secrets.env \
+  ../config/stripe-live-catalogue.json
+```
 
 Create a public HTTPS webhook endpoint at:
 
@@ -62,6 +83,9 @@ STRIPE_LIVE_RELEASE_AUTHORISED=true
 STRIPE_LEGACY_CHECKOUT_ENABLED=false
 STRIPE_API_BASE_URL=https://api.stripe.com
 STRIPE_API_VERSION=2026-02-25.clover
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_ACTIVE=price_...
+STRIPE_PRICE_POWER=price_...
 STRIPE_SUCCESS_URL=https://<test-app-host>/payment/success
 STRIPE_CANCEL_URL=https://<test-app-host>/payment/cancel
 STRIPE_SECRET_KEY=sk_test_...
@@ -93,9 +117,13 @@ record is a failed rehearsal.
 
 ## Production credential cutover
 
-Production requires an `sk_live_` key and rejects a test key. Create a separate
-live webhook endpoint in Stripe, subscribe it to the same four events, and copy
-its own `whsec_` secret. Never reuse the test endpoint secret.
+Production requires a live key and rejects a test key. Keep its least-privilege
+runtime value in `STRIPE_LIVE_RUNTIME_KEY` in the shared secrets file. Create a
+separate live webhook endpoint in Stripe, subscribe it to the same four events,
+and put its own `whsec_` secret in `STRIPE_LIVE_WEBHOOK_SECRET`. Never reuse the
+test endpoint secret. These local variable names deliberately differ from the
+runtime environment names so the live values are not accidentally consumed by
+a local Spring process.
 
 Write the live values through the protected secret-input workflow. In the AWS
 release root these map to Secrets Manager fields:
@@ -104,6 +132,13 @@ release root these map to Secrets Manager fields:
 integration/stripe:secret_key
 integration/stripe:webhook_secret
 ```
+
+The production runtime may instead use a least-privilege `rk_live_` restricted
+key with Checkout Session read/write access. The temporary catalogue-management
+key should not be retained by the application. Product and Price IDs are safe
+identifiers, but the protected release contract must bind all three exact live
+Price IDs to their reviewed Product IDs, amounts, currency and generation
+allowances.
 
 Do not place them in Git, shell history, screenshots, build logs or an approval
 JSON file. Rotate any value exposed during setup.

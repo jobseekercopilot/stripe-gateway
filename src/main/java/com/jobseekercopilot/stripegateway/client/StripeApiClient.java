@@ -68,10 +68,7 @@ public class StripeApiClient implements StripeProviderClient {
         form.add("customer_creation", "always");
         form.add("payment_method_types[0]", "card");
         form.add("client_reference_id", order.getOrderId().toString());
-        form.add("line_items[0][price_data][currency]", order.getCurrency().toLowerCase());
-        form.add("line_items[0][price_data][unit_amount]", String.valueOf(order.getPriceMinor()));
-        form.add("line_items[0][price_data][product_data][name]",
-                "Job Seeker Copilot - " + order.getPricingPlanName() + " document credits");
+        form.add("line_items[0][price]", requiredPriceId(order.getPricingPlanId()));
         form.add("line_items[0][quantity]", "1");
         form.add("metadata[orderId]", order.getOrderId().toString());
         form.add("metadata[catalogVersion]", order.getCatalogVersion());
@@ -141,6 +138,15 @@ public class StripeApiClient implements StripeProviderClient {
         if (stripeProperties.getSecretKey() == null || stripeProperties.getSecretKey().isBlank()) {
             throw new StripeConfigurationException("STRIPE_SECRET_KEY is required");
         }
+    }
+
+    private String requiredPriceId(String pricingPlanId) {
+        String priceId = stripeProperties.priceIdFor(pricingPlanId);
+        if (priceId == null || !priceId.matches("price_[A-Za-z0-9]+")) {
+            throw new StripeConfigurationException(
+                    "The selected pack does not have an approved Stripe Price ID");
+        }
+        return priceId;
     }
 
     private String returnUrl(String base, PaymentOrderSnapshot order) {

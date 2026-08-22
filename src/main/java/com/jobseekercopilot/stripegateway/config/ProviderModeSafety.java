@@ -57,6 +57,9 @@ public class ProviderModeSafety implements ApplicationRunner {
                     "STRIPE_LEGACY_CHECKOUT_ENABLED",
                     "STRIPE_API_BASE_URL",
                     "STRIPE_API_VERSION",
+                    "STRIPE_PRICE_STARTER",
+                    "STRIPE_PRICE_ACTIVE",
+                    "STRIPE_PRICE_POWER",
                     "STRIPE_SUCCESS_URL",
                     "STRIPE_CANCEL_URL",
                     "PAYMENT_SERVICE_URL",
@@ -71,12 +74,14 @@ public class ProviderModeSafety implements ApplicationRunner {
                 throw new IllegalStateException(
                         "Stripe LIVE mode requires explicit release authorisation.");
             }
-            String requiredKeyPrefix = production ? "sk_live_" : "sk_test_";
+            boolean validProviderKey = production
+                    ? hasAnyPrefix(stripeProperties.getSecretKey(), "sk_live_", "rk_live_")
+                    : hasAnyPrefix(stripeProperties.getSecretKey(), "sk_test_", "rk_test_");
             if (stripeProperties.getSecretKey() == null
-                    || !stripeProperties.getSecretKey().startsWith(requiredKeyPrefix)) {
+                    || !validProviderKey) {
                 throw new IllegalStateException(production
-                        ? "Stripe production LIVE mode requires a live secret key."
-                        : "Stripe non-production network mode requires a test secret key.");
+                        ? "Stripe production LIVE mode requires a live secret or restricted key."
+                        : "Stripe non-production network mode requires a test secret or restricted key.");
             }
             if (stripeProperties.getWebhookSecret() == null
                     || !stripeProperties.getWebhookSecret().startsWith("whsec_")) {
@@ -86,6 +91,7 @@ public class ProviderModeSafety implements ApplicationRunner {
                     || stripeProperties.getApiVersion().isBlank()) {
                 throw new IllegalStateException("Stripe LIVE mode requires a pinned API version.");
             }
+            requireLivePriceCatalog();
             requireHttpsReturnUrl(stripeProperties.getSuccessUrl(), "success");
             requireHttpsReturnUrl(stripeProperties.getCancelUrl(), "cancel");
         }
@@ -95,6 +101,26 @@ public class ProviderModeSafety implements ApplicationRunner {
         log.info("provider mode active gateway=stripe-gateway mode={} datasetId={} datasetVersion={} scenario={} externalCallsEnabled={}",
                 providerProperties.getMode(), fixtureProperties.getDatasetId(), fixtureProperties.getDatasetVersion(),
                 fixtureProperties.getScenario(), providerProperties.getMode() == ExternalProviderMode.LIVE);
+    }
+
+    private boolean hasAnyPrefix(String value, String... prefixes) {
+        return value != null && Arrays.stream(prefixes).anyMatch(value::startsWith);
+    }
+
+    private void requireLivePriceCatalog() {
+        List<String> priceIds = List.of(
+                stripeProperties.getStarterPriceId(),
+                stripeProperties.getActivePriceId(),
+                stripeProperties.getPowerPriceId());
+        if (priceIds.stream().anyMatch(value -> value == null
+                || !value.matches("price_[A-Za-z0-9]+"))) {
+            throw new IllegalStateException(
+                    "Stripe LIVE mode requires approved Starter, Active and Power Price IDs.");
+        }
+        if (priceIds.stream().distinct().count() != priceIds.size()) {
+            throw new IllegalStateException(
+                    "Stripe LIVE mode requires a distinct Price ID for each pack.");
+        }
     }
 
     private void requireHttpsReturnUrl(String value, String label) {

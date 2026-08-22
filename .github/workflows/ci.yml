@@ -29,6 +29,8 @@ jobs:
         run: ./scripts/test-api-contract-policy.sh
       - name: Verify reviewed provider API contract
         run: ./scripts/verify-api-contract.sh
+      - name: Test live catalogue reconciliation safety
+        run: ./scripts/test-live-catalogue-reconciliation.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

@@ -15,19 +15,28 @@ public class StripeProviderReadiness {
 
     public StripeReadinessResponse readiness() {
         ExternalProviderMode mode = providerProperties.getMode();
+        boolean catalogConfigured = configuredPrice(stripeProperties.getStarterPriceId())
+                && configuredPrice(stripeProperties.getActivePriceId())
+                && configuredPrice(stripeProperties.getPowerPriceId());
         boolean available = mode == ExternalProviderMode.FIXTURE
                 || mode == ExternalProviderMode.LIVE
-                && stripeProperties.isLiveReleaseAuthorised();
+                && stripeProperties.isLiveReleaseAuthorised()
+                && catalogConfigured;
         String code = switch (mode) {
             case DISABLED -> "PAYMENTS_DISABLED";
             case FIXTURE -> "READY";
-            case LIVE -> stripeProperties.isLiveReleaseAuthorised()
-                    ? "READY" : "LIVE_RELEASE_NOT_AUTHORISED";
+            case LIVE -> !stripeProperties.isLiveReleaseAuthorised()
+                    ? "LIVE_RELEASE_NOT_AUTHORISED"
+                    : catalogConfigured ? "READY" : "STRIPE_CATALOG_NOT_CONFIGURED";
         };
         return StripeReadinessResponse.builder()
                 .checkoutAvailable(available)
                 .code(code)
                 .mode(mode.name())
                 .build();
+    }
+
+    private boolean configuredPrice(String value) {
+        return value != null && value.matches("price_[A-Za-z0-9]+");
     }
 }

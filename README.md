@@ -19,10 +19,10 @@ build input.
 See [`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
 See [`docs/PAYMENT_IDENTITY_BOUNDARY.md`](docs/PAYMENT_IDENTITY_BOUNDARY.md)
 for the service-token and owner trust boundary.
-See [`docs/STRIPE_CUTOVER.md`](docs/STRIPE_CUTOVER.md) for the exact test-mode
-rehearsal and production credential cutover. The owned Checkout integration
-uses inline, server-owned `price_data`; this release does not require Stripe
-Product or Price objects.
+See [`docs/STRIPE_CUTOVER.md`](docs/STRIPE_CUTOVER.md) for the exact test-mode,
+permanent Product/Price catalogue and production credential cutover. The owned
+Checkout integration resolves only the three configured live Price IDs from a
+server-owned pack identifier; it never accepts price data from the browser.
 
 ## Build
 

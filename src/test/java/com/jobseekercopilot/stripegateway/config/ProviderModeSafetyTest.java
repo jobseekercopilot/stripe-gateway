@@ -75,7 +75,7 @@ class ProviderModeSafetyTest {
         assertThatThrownBy(() -> safety(provider, stripe, new MockEnvironment()).run(
                         new DefaultApplicationArguments(new String[0])))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("test secret key");
+                .hasMessageContaining("test secret or restricted key");
     }
 
     @Test
@@ -93,11 +93,37 @@ class ProviderModeSafetyTest {
                         new DefaultApplicationArguments(new String[0])))
                 .doesNotThrowAnyException();
 
+        stripe.setSecretKey("rk_live_restricted-release-key");
+        assertThatCode(() -> safety(provider, stripe, environment).run(
+                        new DefaultApplicationArguments(new String[0])))
+                .doesNotThrowAnyException();
+
         stripe.setSecretKey("sk_test_not-valid-in-production");
         assertThatThrownBy(() -> safety(provider, stripe, environment).run(
                         new DefaultApplicationArguments(new String[0])))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("live secret key");
+                .hasMessageContaining("live secret or restricted key");
+    }
+
+    @Test
+    void networkModeRejectsMissingOrDuplicatePackPriceIds() {
+        ExternalProviderProperties provider = new ExternalProviderProperties();
+        provider.setMode(ExternalProviderMode.LIVE);
+        StripeProperties stripe = stripeProperties();
+        stripe.setLiveReleaseAuthorised(true);
+        stripe.setSecretKey("sk_test_release-rehearsal-key");
+        stripe.setStarterPriceId("");
+
+        assertThatThrownBy(() -> safety(provider, stripe, new MockEnvironment()).run(
+                        new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("approved Starter, Active and Power Price IDs");
+
+        stripe.setStarterPriceId(stripe.getActivePriceId());
+        assertThatThrownBy(() -> safety(provider, stripe, new MockEnvironment()).run(
+                        new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("distinct Price ID");
     }
 
     @Test
@@ -152,6 +178,9 @@ class ProviderModeSafetyTest {
         stripe.setWebhookSecret("whsec_release-test-signing-secret");
         stripe.setSuccessUrl("https://app.example.test/payment/success");
         stripe.setCancelUrl("https://app.example.test/payment/cancel");
+        stripe.setStarterPriceId("price_starter499");
+        stripe.setActivePriceId("price_active1199");
+        stripe.setPowerPriceId("price_power1999");
         stripe.setLiveReleaseAuthorised(false);
         stripe.setLegacyCheckoutEnabled(false);
         return stripe;
@@ -165,6 +194,9 @@ class ProviderModeSafetyTest {
         environment.setProperty("STRIPE_LEGACY_CHECKOUT_ENABLED", "false");
         environment.setProperty("STRIPE_API_BASE_URL", "https://api.stripe.com");
         environment.setProperty("STRIPE_API_VERSION", "2026-02-25.clover");
+        environment.setProperty("STRIPE_PRICE_STARTER", "price_starter499");
+        environment.setProperty("STRIPE_PRICE_ACTIVE", "price_active1199");
+        environment.setProperty("STRIPE_PRICE_POWER", "price_power1999");
         environment.setProperty(
                 "STRIPE_SUCCESS_URL", "https://app.example.test/payment/success");
         environment.setProperty(
