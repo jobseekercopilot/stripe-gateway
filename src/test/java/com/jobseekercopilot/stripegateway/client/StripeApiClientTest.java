@@ -55,6 +55,10 @@ class StripeApiClientTest {
                 .andExpect(content().string(containsString(
                         "expires_at=" + order.getExpiresAt().getEpochSecond())))
                 .andExpect(content().string(containsString(
+                        "managed_payments%5Benabled%5D=false")))
+                .andExpect(content().string(containsString(
+                        "payment_method_types%5B0%5D=card")))
+                .andExpect(content().string(containsString(
                         "line_items%5B0%5D%5Bprice%5D=price_active1199")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString(
                         "price_data"))))

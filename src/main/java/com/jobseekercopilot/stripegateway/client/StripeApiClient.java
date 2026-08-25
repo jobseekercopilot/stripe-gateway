@@ -66,6 +66,7 @@ public class StripeApiClient implements StripeProviderClient {
         form.add("expires_at", String.valueOf(order.getExpiresAt().getEpochSecond()));
         form.add("billing_address_collection", "required");
         form.add("customer_creation", "always");
+        form.add("managed_payments[enabled]", "false");
         form.add("payment_method_types[0]", "card");
         form.add("client_reference_id", order.getOrderId().toString());
         form.add("line_items[0][price]", requiredPriceId(order.getPricingPlanId()));
